@@ -1,0 +1,4 @@
+import { requireStoredUser } from "@/lib/auth/server-auth";
+import { errorResponse } from "@/lib/errors";
+import { getAdminClient } from "@/lib/supabase/admin";
+export async function GET(request: Request) { try { const user = await requireStoredUser(request); const url = new URL(request.url); const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50); const cursor = url.searchParams.get("before"); let query = getAdminClient().from("wv_image_uploads").select("*,wv_generation_jobs(*)").eq("user_id", user.id).eq("status", "ACTIVE").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(limit); if (cursor) query = query.lt("created_at", cursor); const { data, error } = await query; if (error) throw error; return Response.json({ data }); } catch (error) { return errorResponse(error); } }

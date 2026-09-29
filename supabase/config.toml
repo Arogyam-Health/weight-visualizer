@@ -1,0 +1,4 @@
+project_id = "weight-visualizer"
+
+[db]
+major_version = 15
