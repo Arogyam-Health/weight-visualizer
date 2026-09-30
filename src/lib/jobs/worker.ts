@@ -4,14 +4,23 @@ import { getStorageProvider } from "@/lib/storage/factory";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { visualizationDebug } from "@/lib/debug";
 
-export async function processOneJob(): Promise<boolean> {
+type PendingJob = { id: string; upload_id: string; category_code: string; requested_min_loss_kg: number; requested_max_loss_kg: number; effective_max_loss_kg: number; height_cm: number; weight_kg: number; bmi: number; attempt_count: number };
+
+async function recoverTimedOutJobs() {
+  await getAdminClient().from("wv_generation_jobs").update({ status: "FAILED", error_code: "WORKER_TIMEOUT", error_message: "Processing timed out", updated_at: new Date().toISOString() }).eq("status", "PROCESSING").lt("processing_started_at", new Date(Date.now() - 15 * 60_000).toISOString());
+}
+
+async function claimJob(jobId: string): Promise<PendingJob | null> {
   const db = getAdminClient();
-  await db.from("wv_generation_jobs").update({ status: "FAILED", error_code: "WORKER_TIMEOUT", error_message: "Processing timed out", updated_at: new Date().toISOString() }).eq("status", "PROCESSING").lt("processing_started_at", new Date(Date.now() - 15 * 60_000).toISOString());
-  const { data: pending } = await db.from("wv_generation_jobs").select("id,upload_id,category_code,requested_min_loss_kg,requested_max_loss_kg,effective_max_loss_kg,height_cm,weight_kg,bmi,attempt_count").eq("status", "PENDING").order("created_at", { ascending: true }).limit(1).maybeSingle();
-  if (!pending) return false;
+  const { data: pending } = await db.from("wv_generation_jobs").select("id,upload_id,category_code,requested_min_loss_kg,requested_max_loss_kg,effective_max_loss_kg,height_cm,weight_kg,bmi,attempt_count").eq("id", jobId).eq("status", "PENDING").maybeSingle();
+  if (!pending) return null;
+  const { data: claimed } = await db.from("wv_generation_jobs").update({ status: "PROCESSING", processing_started_at: new Date().toISOString(), attempt_count: pending.attempt_count + 1, updated_at: new Date().toISOString() }).eq("id", jobId).eq("status", "PENDING").select("id,upload_id,category_code,requested_min_loss_kg,requested_max_loss_kg,effective_max_loss_kg,height_cm,weight_kg,bmi,attempt_count").maybeSingle();
+  return claimed as PendingJob | null;
+}
+
+async function processClaimedJob(pending: PendingJob): Promise<boolean> {
+  const db = getAdminClient();
   visualizationDebug("job_found", { jobId: pending.id, categoryCode: pending.category_code, attemptCount: pending.attempt_count });
-  const { data: claimed } = await db.from("wv_generation_jobs").update({ status: "PROCESSING", processing_started_at: new Date().toISOString(), attempt_count: pending.attempt_count + 1, updated_at: new Date().toISOString() }).eq("id", pending.id).eq("status", "PENDING").select().maybeSingle();
-  if (!claimed) return false;
   visualizationDebug("job_claimed", { jobId: pending.id, attemptCount: pending.attempt_count + 1 });
   try {
     const { data: upload, error } = await db.from("wv_image_uploads").select("storage_key,user_id,status").eq("id", pending.upload_id).single();
@@ -29,6 +38,18 @@ export async function processOneJob(): Promise<boolean> {
     await db.from("wv_generation_jobs").update({ status: "FAILED", error_code: "PROVIDER_FAILED", error_message: error instanceof Error ? error.message.slice(0, 200) : "Provider failed", updated_at: new Date().toISOString() }).eq("id", pending.id);
     return true;
   }
+}
+
+export async function processJob(jobId: string): Promise<boolean> {
+  await recoverTimedOutJobs();
+  const claimed = await claimJob(jobId);
+  return claimed ? processClaimedJob(claimed) : false;
+}
+
+export async function processOneJob(): Promise<boolean> {
+  await recoverTimedOutJobs();
+  const { data: pending } = await getAdminClient().from("wv_generation_jobs").select("id").eq("status", "PENDING").order("created_at", { ascending: true }).limit(1).maybeSingle();
+  return pending ? processJob(pending.id) : false;
 }
 
 export async function runWorker() { const once = process.argv.includes("--once"); do { const processed = await processOneJob(); if (!processed && !once) await new Promise((resolve) => setTimeout(resolve, 1000)); if (!processed && once) break; } while (true); }

@@ -6,7 +6,7 @@ const allowedHeaders = "Content-Type, X-User-Id, X-Phone, Idempotency-Key";
 function allowedOrigins(): Set<string> {
   const configured = process.env.ALLOWED_STOREFRONT_ORIGINS
     ?.split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean);
 
   // The local visualizer is served by the Shopify/theme dev server on port 9292.
