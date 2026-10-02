@@ -13,17 +13,18 @@ const input = {
 describe("buildVisualizationPrompt", () => {
   it("restores the compact prompt wording", () => {
     const prompt = buildVisualizationPrompt(input);
-    expect(prompt).toContain("Edit the provided full-body photo of a single person.");
-    expect(prompt).toContain("approximately 6-10 kg lower body weight");
-    expect(prompt).toContain("height 170 cm, weight 85 kg, and BMI 29.41");
+    expect(prompt).toContain("Edit the provided full-body photo of a single adult person.");
     expect(prompt).toContain("Apply a moderate but realistic visible reduction.");
-    expect(prompt).toContain("Do not add abs or a gym body.");
+    expect(prompt).toContain("Do not add muscle size or definition, visible abs, athletic or bodybuilding features");
+    expect(prompt).not.toContain("BMI");
+    expect(prompt).not.toContain("medically plausible");
   });
 
   it("uses the backend-capped maximum", () => {
     const prompt = buildVisualizationPrompt({ ...input, categoryCode: "LOSS_10_15", requestedMinLossKg: 10, requestedMaxLossKg: 15, effectiveMaxLossKg: 12.4 });
-    expect(prompt).toContain("approximately 10-12.4 kg lower body weight");
-    expect(prompt).not.toContain("approximately 10-15 kg lower body weight");
+    expect(prompt).toContain("realistic visible reduction in overall body volume and silhouette");
+    expect(prompt).not.toContain("10-12.4 kg");
+    expect(prompt).not.toContain("10-15 kg");
   });
 
   it.each([
