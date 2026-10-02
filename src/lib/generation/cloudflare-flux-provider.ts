@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { getConfig } from "@/lib/config";
 import { visualizationDebug } from "@/lib/debug";
-import { buildVisualizationPrompt } from "@/lib/generation/prompt";
+import { buildWeightLossPrompt, getVisualIntensity } from "@/lib/generation/prompt";
 import type { GenerationInput, GenerationOutput, ImageGenerationProvider } from "@/lib/generation/provider";
 
 type CloudflareResponse = { result?: { image?: string }; success?: boolean; errors?: Array<{ message?: string }> };
@@ -10,8 +10,9 @@ export class CloudflareFluxImageGenerationProvider implements ImageGenerationPro
   async generate(input: GenerationInput): Promise<GenerationOutput> {
     const config = getConfig();
     const modelInput = await sharp(input.original).rotate().resize({ width: 480, height: 480, fit: "contain", background: { r: 245, g: 245, b: 245, alpha: 1 } }).jpeg({ quality: 88 }).toBuffer();
-    const prompt = buildVisualizationPrompt(input);
-    visualizationDebug("cloudflare_request_prepared", { model: config.CLOUDFLARE_MODEL, inputBytes: modelInput.byteLength, inputWidth: 480, inputHeight: 480, outputWidth: 768, outputHeight: 1024, prompt });
+    const prompt = buildWeightLossPrompt({ categoryCode: input.categoryCode, effectiveMinimumKg: input.requestedMinLossKg, effectiveMaximumKg: input.effectiveMaxLossKg });
+    visualizationDebug("prompt_generated", { categoryCode: input.categoryCode, effectiveMinimumKg: input.requestedMinLossKg, effectiveMaximumKg: input.effectiveMaxLossKg, visualIntensity: getVisualIntensity(input.categoryCode), provider: "cloudflare-flux", providerModel: config.CLOUDFLARE_MODEL, promptLength: prompt.length, ...(process.env.NODE_ENV !== "production" ? { prompt } : {}) });
+    visualizationDebug("cloudflare_request_prepared", { model: config.CLOUDFLARE_MODEL, inputBytes: modelInput.byteLength, inputWidth: 480, inputHeight: 480, outputWidth: 768, outputHeight: 1024, promptLength: prompt.length });
     const form = new FormData();
     form.append("prompt", prompt);
     form.append("input_image_0", new Blob([new Uint8Array(modelInput)], { type: "image/jpeg" }), "input.jpg");
