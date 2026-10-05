@@ -17,7 +17,7 @@ const envSchema = z.object({
   CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
   CLOUDFLARE_MODEL: z.string().default("@cf/black-forest-labs/flux-2-klein-4b"),
   VISUALIZATION_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
-  MIN_RESULTING_BMI: z.coerce.number().positive().default(18.5),
+  MIN_RESULTING_BMI: z.coerce.number().positive().default(25),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(10485760),
   MIN_IMAGE_WIDTH: z.coerce.number().int().positive().default(512),
   MIN_IMAGE_HEIGHT: z.coerce.number().int().positive().default(512),

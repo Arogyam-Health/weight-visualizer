@@ -9,4 +9,6 @@
 
 Required secrets: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Local storage also requires `STORAGE_SIGNING_SECRET`. Cloudinary mode additionally requires its three Cloudinary credentials. The browser receives only the anonymous Supabase key; the service-role key is server-only.
 
+Eligibility uses BMI 25 as the backend guardrail. The server calculates the maximum loss before the resulting BMI reaches 25 and enables only the corresponding 3–5 kg, 6–10 kg, and 10–15 kg categories.
+
 The development UI reads `user_id` and `phone` from localStorage. These are claims only; every API request verifies the pair against the existing `public.users(id, phone)` table using the server-only service-role client. The existing users table is not created or modified by this module.

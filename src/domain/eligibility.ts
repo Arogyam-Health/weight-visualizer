@@ -28,15 +28,15 @@ const round = (value: number): number => Math.round((value + Number.EPSILON) * 1
 export function calculateEligibility(
   heightCm: number,
   weightKg: number,
-  minimumResultingBmi = 18.5,
+  guardrailBmi = 25,
 ): EligibilityResult {
   if (!Number.isFinite(heightCm) || heightCm < 100 || heightCm > 250) throw new Error("INVALID_HEIGHT");
   if (!Number.isFinite(weightKg) || weightKg < 30 || weightKg > 350) throw new Error("INVALID_WEIGHT");
-  if (!Number.isFinite(minimumResultingBmi) || minimumResultingBmi <= 0) throw new Error("INVALID_BMI_CONFIGURATION");
+  if (!Number.isFinite(guardrailBmi) || guardrailBmi <= 0) throw new Error("INVALID_BMI_CONFIGURATION");
 
   const heightMeters = heightCm / 100;
   const bmi = round(weightKg / (heightMeters * heightMeters));
-  const minimumAllowedWeight = minimumResultingBmi * heightMeters * heightMeters;
+  const minimumAllowedWeight = guardrailBmi * heightMeters * heightMeters;
   const maximumSafeLossKg = round(Math.max(0, weightKg - minimumAllowedWeight));
   const categories = CATEGORY_DEFINITIONS.map((category) => {
     const effectiveMaximumKg = round(Math.min(category.max, maximumSafeLossKg));
